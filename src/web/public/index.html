@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>YieldClaw</title>
+<link rel="icon" href="/logo.png">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#110707;--bg2:#1e1010;--bg3:#2c1616;
+  --border:#4a2222;--border2:#6e3535;
+  --text:#FFF3EC;--text2:#FFF3ECcc;--text3:#FFF3EC55;
+  --accent:#FFB088;--acc-dim:rgba(255,176,136,.15);--acc-glow:rgba(255,176,136,.3);
+  --primary:#8a1010;--secondary:#E82020;
+  --green:#5eea9a;--red:#ff5555;--yellow:#ffd04a;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;overflow:hidden;height:100vh;user-select:none}
+
+/* Menu Bar */
+.menubar{height:28px;background:rgba(17,7,7,.92);backdrop-filter:blur(24px);border-bottom:1px solid rgba(61,26,26,.5);display:flex;align-items:center;padding:0 16px;gap:20px;position:relative;z-index:1000;font-size:13px;font-weight:500;color:var(--text2)}
+.mb-logo{display:flex;align-items:center;gap:6px}
+.mb-logo img{width:14px;height:14px;border-radius:3px}
+.mb-logo span{font-weight:800;font-size:12px;letter-spacing:1.5px;color:var(--accent)}
+.mb-item{cursor:default;padding:1px 10px;border-radius:4px;font-size:13px}
+.mb-item:hover{background:rgba(255,152,107,.12)}
+.mb-spacer{flex:1}
+.mb-right{display:flex;align-items:center;gap:14px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text3)}
+.mb-pill{padding:2px 8px;border-radius:10px;font-size:9px;font-weight:700;border:1px solid}
+.mb-pill.demo{border-color:rgba(251,191,36,.25);background:rgba(251,191,36,.08);color:var(--yellow)}
+.mb-pill.live{border-color:rgba(74,222,128,.25);background:rgba(74,222,128,.08);color:var(--green)}
+.mb-pill.offline{border-color:rgba(255,85,85,.25);background:rgba(255,85,85,.08);color:var(--red)}
+.mb-dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* Desktop */
+.desktop{position:relative;height:calc(100vh - 28px - 68px);overflow:hidden;background:url('/wal.png') center/cover no-repeat var(--bg)}
+.desktop::after{content:'';position:absolute;inset:0;background:rgba(17,7,7,.15);pointer-events:none}
+</style>
+</head>
+<body>
+<!-- Boot Screen -->
+<div id="bootScreen" style="position:fixed;inset:0;z-index:99999;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .8s ease">
+  <img src="/logo.png" width="64" height="64" style="border-radius:16px;margin-bottom:32px;opacity:.9">
+  <div style="width:180px;height:3px;background:rgba(255,255,255,.12);border-radius:2px;overflow:hidden;margin-top:8px">
+    <div id="bootBar" style="width:0%;height:100%;background:rgba(255,255,255,.65);border-radius:2px;transition:width .3s ease"></div>
+  </div>
+</div>
+<div class="menubar" style="opacity:0">
+  <div class="mb-logo"><img src="/logo.png" alt=""><span>YIELDCLAW</span></div>
+  <div class="mb-item">File</div><div class="mb-item">View</div><div class="mb-item">Agent</div>
+  <div class="mb-spacer"></div>
+  <div class="mb-right">
+    <span id="hPools">--</span> pools <span id="hCycles">0</span> cycles <span id="hUptime">0m</span>
+    <div class="mb-pill offline" id="modeBadge">SETUP</div>
+    <div class="mb-dot"></div>
+  </div>
+</div>
+<div class="desktop" id="desktop" style="opacity:0">
+  <!-- Desktop Icons -->
+  <div class="desk-icon" id="di-terminal" data-open="terminal" style="top:24px;right:24px">
+    <div class="desk-icon-bg" style="background:linear-gradient(180deg,#3a2218,#221410);border-color:#6e3a2a"><img src="/icon-terminal.svg" width="26" height="26"></div>
+    <div class="desk-icon-label">Terminal</div>
+  </div>
+  <div class="desk-icon" id="di-info" data-open="info" style="top:118px;right:24px">
+    <div class="desk-icon-bg" style="background:linear-gradient(180deg,#1a2e20,#0e1a12);border-color:rgba(94,234,154,.35)"><img src="/icon-dashboard.svg" width="34" height="34"></div>
+    <div class="desk-icon-label">Dashboard</div>
+  </div>
+  <div class="desk-icon" id="di-thought" data-open="thought" style="top:212px;right:24px">
+    <div class="desk-icon-bg" style="background:linear-gradient(180deg,#281838,#180e24);border-color:rgba(210,160,255,.35)"><img src="/icon-thoughts.svg" width="26" height="26"></div>
+    <div class="desk-icon-label">Thoughts</div>
+  </div>
+  <div class="desk-icon" id="di-settings" data-open="settings" style="top:306px;right:24px">
+    <div class="desk-icon-bg" style="background:linear-gradient(180deg,#2a2028,#1a1218);border-color:rgba(200,200,210,.25)"><img src="/icon-settings.svg" width="26" height="26"></div>
+    <div class="desk-icon-label">Settings</div>
+  </div>
+
+  <!-- Terminal Window -->
+  <div class="win hidden" id="win-terminal" style="top:30px;left:40px;width:720px;height:480px">
+    <div class="win-bar" data-win="terminal"><div class="win-dots"><div class="win-dot r" data-action="close" data-win="terminal"><svg viewBox="0 0 8 8"><path d="M1 1l6 6M7 1l-6 6" stroke="rgba(0,0,0,.5)" stroke-width="1.2" stroke-linecap="round"/></svg></div><div class="win-dot y" data-action="min" data-win="terminal"><svg viewBox="0 0 8 8"><line x1="1" y1="4" x2="7" y2="4" stroke="rgba(0,0,0,.5)" stroke-width="1.2" stroke-linecap="round"/></svg></div><div class="win-dot g" data-action="max" data-win="terminal"><svg viewBox="0 0 8 8"><path d="M1 3l3-2 3 2M1 5l3 2 3-2" stroke="rgba(0,0,0,.5)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></div></div><div class="win-title"><b>yieldclaw</b> -- agent@solana</div><div style="width:52px"></div></div>
+    <div class="win-body"><div class="term-body" id="consoleBody"><div class="console-empty"><span style="animation:blink 1s infinite">_</span> Initializing agent...</div></div></div>
+    <div class="win-resize-r" data-win="terminal"></div><div class="win-resize-b" data-win="terminal"></div><div class="win-resize-br" data-win="terminal"></div>
+  </div>
+  <!-- Dashboard Window -->
+  <div class="win hidden" id="win-info" style="top:50px;left:800px;width:340px;height:480px">
+    <div class="win-bar" data-win="info"><div class="win-dots"><div class="win-dot r" data-action="close" data-win="info"><svg viewBox="0 0 8 8"><path d="M1 1l6 6M7 1l-6 6" stroke="rgba(0,0,0,.5)" stroke-width="1.2" stroke-linecap="round"/></svg></div><div class="win-dot y" data-action="min" data-win="info"><svg viewBox="0 0 8 8"><line x1="1" y1="4" x2="7" y2="4" stroke="rgba(0,0,0,.5)" stroke-width="1.2" stroke-linecap="round"/></svg></div><div class="win-dot g" data-action="max" data-win="info"><svg viewBox="0 0 8 8"><path d="M1 3l3-2 3 2M1 5l3 2 3-2" stroke="rgba(0,0,0,.5)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></div></div><div class="win-title"><b>dashboard</b> -- portfolio</div><div style="width:52px"></div></div>
+    <div class="win-body" style="background:var(--bg2);overflow-y:auto;padding:14px" id="infoBody"></div>
+    <div class="win-resize-r" data-win="info"></div><div class="win-resize-b" data-win="info"></div><div class="win-resize-br" data-win="info"></div>
+  </div>
+  <!-- Thought Window -->
+  <div class="win hidden" id="win-thought" style="top:140px;left:300px;width:420px;height:200px">
+    <div class="win-bar" data-win="thought"><div class="win-dots"><div class="win-dot r" data-action="close" data-win="thought"><svg viewBox="0 0 8 8"><path d="M1 1l6 6M7 1l-6 6" stroke="rgba(0,0,0,.5)" stroke-width="1.2" stroke-linecap="round"/></svg></div><div class="win-dot y" data-action="min" data-win="thought"><svg viewBox="0 0 8 8"><line x1="1" y1="4" x2="7" y2="4" stroke="rgba(0,0,0,.5)" stroke-width="1.2" stroke-linecap="round"/></svg></div><div class="win-dot g" data-action="max" data-win="thought"><svg viewBox="0 0 8 8"><path d="M1 3l3-2 3 2M1 5l3 2 3-2" stroke="rgba(0,0,0,.5)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></div></div><div class="win-title"><b>yieldclaw</b> -- thinking</div><div style="width:52px"></div></div>
+    <div class="win-body" style="background:var(--bg2);overflow-y:auto"><div id="thoughtBody" style="padding:16px 18px;font-size:13px;color:var(--text2);line-height:1.7"></div></div>
+    <div class="win-resize-r" data-win="thought"></div><div class="win-resize-b" data-win="thought"></div><div class="win-resize-br" data-win="thought"></div>
+  </div>
+  <!-- Settings Window -->
+  <div class="win hidden" id="win-settings" style="top:60px;left:180px;width:440px;height:520px">
+    <div class="win-bar" data-win="settings"><div class="win-dots"><div class="win-dot r" data-action="close" data-win="settings"><svg viewBox="0 0 8 8"><path d="M1 1l6 6M7 1l-6 6" stroke="rgba(0,0,0,.5)" stroke-width="1.2" stroke-linecap="round"/></svg></div><div class="win-dot y" data-action="min" data-win="settings"><svg viewBox="0 0 8 8"><line x1="1" y1="4" x2="7" y2="4" stroke="rgba(0,0,0,.5)" stroke-width="1.2" stroke-linecap="round"/></svg></div><div class="win-dot g" data-action="max" data-win="settings"><svg viewBox="0 0 8 8"><path d="M1 3l3-2 3 2M1 5l3 2 3-2" stroke="rgba(0,0,0,.5)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></div></div><div class="win-title"><b>settings</b> -- agent control</div><div style="width:52px"></div></div>
+    <div class="win-body" style="background:var(--bg2);overflow-y:auto;padding:16px" id="settingsBody"></div>
+    <div class="win-resize-r" data-win="settings"></div><div class="win-resize-b" data-win="settings"></div><div class="win-resize-br" data-win="settings"></div>
+  </div>
+</div>
+
+<!-- macOS-style Dock -->
+<div class="dock-wrap" style="opacity:0"><div class="dock" id="dock"></div></div>
+<div id="toastBox"></div>
+
+<style>
+/* Desktop Icons */
+.desk-icon{position:absolute;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:grab;padding:6px 10px;border-radius:8px;width:80px;transition:background .15s;z-index:5}
+.desk-icon:hover{background:rgba(255,255,255,.06)}
+.desk-icon:active{cursor:grabbing;background:rgba(255,255,255,.1)}
+.desk-icon.selected{background:rgba(255,152,107,.12);outline:1px solid rgba(255,152,107,.3);outline-offset:-1px}
+.desk-icon-bg{width:56px;height:56px;border-radius:14px;border:1px solid;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,.4)}
+.desk-icon img,.desk-icon svg{pointer-events:none;filter:drop-shadow(0 2px 6px rgba(0,0,0,.5))}
+.desk-icon-label{font-size:11px;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.9);font-weight:500;text-align:center;pointer-events:none}
+
+/* Window */
+.win{position:absolute;z-index:10;border-radius:10px;overflow:visible;box-shadow:0 20px 60px rgba(0,0,0,.55),0 0 0 .5px rgba(255,255,255,.08);display:flex;flex-direction:column;min-width:300px;min-height:180px}
+.win.focused{z-index:50;box-shadow:0 24px 80px rgba(0,0,0,.65),0 0 0 .5px rgba(255,255,255,.1)}
+.win.hidden{display:none !important}
+.win.anim-open{animation:winOpen .3s cubic-bezier(.2,.9,.3,1) both}
+.win.anim-close{animation:winClose .25s cubic-bezier(.4,0,1,1) both;pointer-events:none}
+.win.anim-minimize{animation:winMin .3s cubic-bezier(.4,0,1,1) both;pointer-events:none}
+@keyframes winOpen{0%{opacity:0;transform:scale(.88)}100%{opacity:1;transform:scale(1)}}
+@keyframes winClose{0%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(.88)}}
+@keyframes winMin{0%{opacity:1;transform:scale(1) translateY(0)}100%{opacity:0;transform:scale(.5) translateY(120px)}}
+.win-bar{height:38px;background:rgba(30,15,15,.95);backdrop-filter:blur(12px);display:flex;align-items:center;padding:0 14px;gap:8px;flex-shrink:0;cursor:grab;border-bottom:1px solid rgba(255,255,255,.05);border-radius:10px 10px 0 0}
+.win-bar:active{cursor:grabbing}
+.win-dots{display:flex;gap:8px}
+.win-dot{width:12px;height:12px;border-radius:50%;cursor:pointer;transition:filter .12s;position:relative;display:flex;align-items:center;justify-content:center}
+.win-dot:hover{filter:brightness(1.3)}
+.win-dot.r{background:#ff5f57}.win-dot.y{background:#febc2e}.win-dot.g{background:#28c840}
+.win-dot svg{opacity:0;transition:opacity .1s;width:8px;height:8px}
+.win-dots:hover .win-dot svg{opacity:1}
+.win-title{flex:1;text-align:center;font-size:12px;color:var(--text3);font-weight:500;letter-spacing:.3px}
+.win-title b{color:var(--text2);font-weight:700}
+.win-body{flex:1;overflow:hidden;position:relative;background:#0a0505;border-radius:0 0 10px 10px}
+.win-resize-r{position:absolute;top:38px;right:-3px;width:6px;bottom:10px;cursor:ew-resize;z-index:6}
+.win-resize-b{position:absolute;bottom:-3px;left:10px;right:10px;height:6px;cursor:ns-resize;z-index:6}
+.win-resize-br{position:absolute;bottom:-3px;right:-3px;width:14px;height:14px;cursor:nwse-resize;z-index:7}
+
+/* macOS Dock */
+.dock-wrap{height:68px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:6px;position:relative;z-index:100}
+.dock{display:flex;align-items:flex-end;gap:2px;padding:4px 8px;background:rgba(17,7,7,.55);backdrop-filter:blur(30px);border-radius:16px;border:1px solid rgba(255,255,255,.06);box-shadow:0 8px 32px rgba(0,0,0,.4)}
+.dock-sep{width:1px;height:32px;background:rgba(255,255,255,.08);margin:0 4px;align-self:center}
+.dock-item{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .25s cubic-bezier(.2,.9,.3,1),margin .2s;position:relative}
+.dock-item:hover{transform:translateY(-12px) scale(1.25)}
+.dock-item:hover+.dock-item{transform:translateY(-4px) scale(1.08)}
+.dock-item:active{transform:translateY(-6px) scale(1.1)}
+.dock-item.active::after{content:'';position:absolute;bottom:-6px;width:4px;height:4px;border-radius:50%;background:var(--text2)}
+.dock-item img,.dock-item svg{width:42px;height:42px;border-radius:10px;pointer-events:none}
+.dock-item>div{pointer-events:none}
+.dock-tooltip{position:absolute;top:-36px;left:50%;transform:translateX(-50%);background:rgba(30,15,15,.95);backdrop-filter:blur(8px);padding:4px 12px;border-radius:6px;font-size:11px;color:var(--text);white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s;border:1px solid rgba(255,255,255,.08)}
+.dock-item:hover .dock-tooltip{opacity:1}
+</style>
+
+<style>
+/* Terminal */
+.term-body{position:absolute;inset:0;overflow-y:auto;padding:14px 16px;font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.8}
+.log-line{display:flex;gap:8px;align-items:flex-start;padding:1px 0;border-radius:3px;transition:background .15s,opacity .5s;animation:logIn .5s ease-out both;position:relative;z-index:1}
+.log-line:hover{background:rgba(255,152,107,.03)}
+@keyframes logIn{0%{opacity:0;transform:translateY(8px)}100%{opacity:1;transform:translateY(0)}}
+.log-time{color:var(--text3);flex-shrink:0;font-size:9px;opacity:.5;margin-top:2px;font-family:'JetBrains Mono',monospace}
+.log-prompt{color:var(--accent);flex-shrink:0;font-weight:700;font-size:10px;margin-top:1px}
+.log-msg{color:var(--text2);word-break:break-word}
+.log-msg.warn{color:var(--yellow)}.log-msg.error{color:var(--red)}.log-msg.success{color:var(--green)}.log-msg.action{color:var(--accent)}.log-msg.system{color:var(--text3);font-style:italic}
+.console-empty{display:flex;align-items:center;justify-content:center;height:100%;gap:8px;color:var(--text3);font-size:12px;position:relative;z-index:1}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+
+/* Info cards */
+.info-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px}
+.info-title{font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);font-weight:700;margin-bottom:8px}
+.info-row{display:flex;justify-content:space-between;align-items:center;padding:3px 0}
+.info-label{font-size:11px;color:var(--text2)}
+.info-val{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600}
+.info-val.accent{color:var(--accent)}.info-val.green{color:var(--green)}
+.pos-item{padding:6px 0;border-bottom:1px solid rgba(61,26,26,.3)}.pos-item:last-child{border-bottom:none}
+.pos-top{display:flex;justify-content:space-between;align-items:center}
+.pos-name{font-size:11px;font-weight:700;color:var(--accent)}
+.pos-proto{font-size:8px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.pos-bottom{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text2);margin-top:2px}
+.pos-pnl-pos{color:var(--green)}.pos-pnl-neg{color:var(--red)}
+.act-item{padding:4px 0;border-bottom:1px solid rgba(61,26,26,.2);font-size:10px}.act-item:last-child{border-bottom:none}
+.act-time{color:var(--text3);font-family:'JetBrains Mono',monospace;margin-right:4px}
+.act-buy{color:var(--green);font-weight:700}.act-sell{color:var(--red);font-weight:700}
+.empty{font-size:10px;color:var(--text3);font-style:italic;padding:4px 0}
+
+/* Toast */
+#toastBox{position:fixed;bottom:86px;right:20px;z-index:999;display:flex;flex-direction:column-reverse;gap:8px;pointer-events:none}
+.toast{pointer-events:auto;background:rgba(26,14,14,.92);backdrop-filter:blur(16px);border:1px solid var(--border2);border-radius:14px;padding:14px 18px;min-width:280px;max-width:360px;box-shadow:0 12px 40px rgba(0,0,0,.6);animation:toastIn .5s cubic-bezier(.16,1,.3,1) both;position:relative;overflow:hidden}
+.toast::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),var(--green))}
+.toast.exit{animation:toastOut .4s ease-in both}
+@keyframes toastIn{0%{opacity:0;transform:translateX(60px) scale(.9)}100%{opacity:1;transform:translateX(0) scale(1)}}
+@keyframes toastOut{0%{opacity:1;transform:translateX(0)}100%{opacity:0;transform:translateX(60px)}}
+.toast-head{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.toast-action{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px}
+.toast-action.buy{color:var(--green)}.toast-action.sell{color:var(--red)}
+.toast-pool{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:var(--accent)}
+.toast-detail{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text2);margin-top:3px}
+.toast-proto{font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;font-weight:600}
+.toast-progress{position:absolute;bottom:0;left:0;height:2px;background:var(--accent);animation:toastTimer 5s linear both}
+@keyframes toastTimer{0%{width:100%}100%{width:0%}}
+.thought-cursor{display:inline-block;width:2px;height:14px;background:var(--accent);margin-left:2px;animation:blink .6s infinite;vertical-align:text-bottom}
+
+/* Settings */
+.set-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:8px}
+.set-title{font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);font-weight:700;margin-bottom:10px}
+.set-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0}
+.set-label{font-size:12px;color:var(--text2)}
+.set-desc{font-size:9px;color:var(--text3);margin-top:1px}
+.toggle{position:relative;width:40px;height:22px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-sl{position:absolute;inset:0;background:var(--border);border-radius:11px;cursor:pointer;transition:background .2s}
+.toggle-sl::before{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:var(--text);left:3px;top:3px;transition:transform .2s}
+.toggle input:checked+.toggle-sl{background:var(--accent)}
+.toggle input:checked+.toggle-sl::before{transform:translateX(18px)}
+.set-range{width:100%;margin-top:4px;appearance:none;-webkit-appearance:none;height:4px;border-radius:2px;background:var(--border);outline:none}
+.set-range::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 0 6px var(--acc-glow)}
+.set-rv{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:var(--accent);min-width:40px;text-align:right}
+.set-select{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:4px 8px;color:var(--text);font-size:11px;font-family:'JetBrains Mono',monospace;outline:none;cursor:pointer}
+.set-select option{background:var(--bg2);color:var(--text)}
+.set-input{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text);font-size:11px;font-family:'Inter',sans-serif;outline:none;width:100%;resize:vertical}
+.set-input:focus{border-color:var(--accent)}
+.set-btn{padding:8px 16px;border-radius:8px;border:1px solid;font-size:11px;font-weight:700;cursor:pointer;transition:all .15s;font-family:'Inter',sans-serif}
+.set-btn:hover{filter:brightness(1.2)}
+.set-btn.primary{background:var(--acc-dim);border-color:rgba(255,152,107,.3);color:var(--accent)}
+.set-btn.danger{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.25);color:var(--red)}
+.set-btn.success{background:rgba(74,222,128,.08);border-color:rgba(74,222,128,.25);color:var(--green)}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+</style>
+
+<script>
+/* ── Boot sequence ── */
+(function(){
+  var bar=document.getElementById('bootBar');
+  var boot=document.getElementById('bootScreen');
+  var steps=[
+    {w:12,t:200},{w:28,t:400},{w:35,t:300},{w:52,t:500},
+    {w:68,t:350},{w:79,t:400},{w:88,t:300},{w:95,t:250},{w:100,t:200}
+  ];
+  var i=0;
+  function next(){
+    if(i>=steps.length){
+      setTimeout(function(){
+        boot.style.opacity='0';
+        var mb=document.querySelector('.menubar');
+        var dk=document.querySelector('.dock-wrap');
+        var dt=document.getElementById('desktop');
+        mb.style.transition='opacity .5s ease';mb.style.opacity='1';
+        dt.style.transition='opacity .5s ease';dt.style.opacity='1';
+        dk.style.transition='opacity .5s ease .1s';dk.style.opacity='1';
+        setTimeout(function(){boot.style.display='none';},900);
+      },300);
+      return;
+    }
+    bar.style.width=steps[i].w+'%';
+    var delay=steps[i].t;
+    i++;
+    setTimeout(next,delay);
+  }
+  setTimeout(next,500);
+})();
+</script>
+
+<script>
+/* ── Dock (macOS style with separator) ── */
+(function(){
+  var dock=document.getElementById('dock');
+  var items=[
+    {id:'terminal',label:'Terminal',icon:'terminal'},
+    {id:'info',label:'Dashboard',icon:'dashboard'},
+    {id:'thought',label:'Thoughts',icon:'thought'},
+    'sep',
+    {id:'settings',label:'Settings',icon:'settings'}
+  ];
+  var iconMap={terminal:'/icon-terminal.svg',dashboard:'/icon-dashboard.svg',thought:'/icon-thoughts.svg',settings:'/icon-settings.svg'};
+  var bgMap={terminal:'linear-gradient(180deg,#3a2218,#221410)',dashboard:'linear-gradient(180deg,#1a2e20,#0e1a12)',thought:'linear-gradient(180deg,#281838,#180e24)',settings:'linear-gradient(180deg,#2a2028,#1a1218)'};
+  var borderMap={terminal:'#6e3a2a',dashboard:'rgba(94,234,154,.35)',thought:'rgba(210,160,255,.35)',settings:'rgba(200,200,210,.25)'};
+  // Individual sizes to compensate for different SVG viewBox/padding
+  var sizeMap={terminal:20,dashboard:26,thought:20,settings:22};
+  items.forEach(function(it){
+    if(it==='sep'){var s=document.createElement('div');s.className='dock-sep';dock.appendChild(s);return;}
+    var d=document.createElement('div');
+    d.className='dock-item';
+    d.id='dock-'+it.id;
+    var sz=sizeMap[it.icon]||22;
+    d.innerHTML='<div style="width:42px;height:42px;border-radius:10px;background:'+bgMap[it.icon]+';border:1px solid '+borderMap[it.icon]+';display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,.4)"><img src="'+iconMap[it.icon]+'" style="width:'+sz+'px;height:'+sz+'px"></div><div class="dock-tooltip">'+it.label+'</div>';
+    d.onclick=function(){openWin(it.id);};
+    dock.appendChild(d);
+  });
+})();
+
+/* ── Info panel ── */
+document.getElementById('infoBody').innerHTML=
+  '<div class="info-card"><div class="info-title">Portfolio</div><div class="info-row"><span class="info-label">SOL Price</span><span class="info-val accent" id="pfPrice">--</span></div><div class="info-row"><span class="info-label">Available</span><span class="info-val" id="pfBal">--</span></div><div class="info-row"><span class="info-label">Deployed</span><span class="info-val accent" id="pfDeployed">--</span></div><div class="info-row"><span class="info-label">Total</span><span class="info-val" id="pfTotal">--</span></div><div class="info-row"><span class="info-label">Pools Scanned</span><span class="info-val" id="pfPools">--</span></div><div class="info-row"><span class="info-label">Qualified</span><span class="info-val green" id="pfQualified">--</span></div></div>'+
+  '<div class="info-card"><div class="info-title">Strategy</div><div class="info-row"><span class="info-label">Max positions</span><span class="info-val" id="sMaxPos">5</span></div><div class="info-row"><span class="info-label">Max per pool</span><span class="info-val" id="sMaxPool">20%</span></div><div class="info-row"><span class="info-label">Reserve</span><span class="info-val" id="sReserve">5%</span></div><div class="info-row"><span class="info-label">Rebalance at</span><span class="info-val" id="sRebal">-50% score</span></div></div>'+
+  '<div class="info-card"><div class="info-title">Positions <span style="margin-left:6px;font-size:8px;color:var(--text3)" id="posCount">0/5</span></div><div id="posList"><div class="empty">No open positions</div></div></div>'+
+  '<div class="info-card"><div class="info-title">Activity</div><div id="actList"><div class="empty">Waiting for activity...</div></div></div>';
+
+/* ── Settings ── */
+var S={enabled:true,maxPerPool:5,maxPositions:5,reserve:5,minApy:5,rebalanceThreshold:50,scanInterval:60,aiModel:'anthropic/claude-sonnet-4',aiTemperature:0.8,aiMaxTokens:120,aggression:5,hasApiKey:false,apiKeyMasked:'',walletAddress:'',walletKeyMasked:'',walletConnected:false,isDevnet:false};
+
+function aggrLabel(v){
+  if(v<=2)return 'Conservative: patient entries, wide stop-loss, long holds';
+  if(v<=4)return 'Moderate: balanced risk, standard rotation';
+  if(v<=6)return 'Balanced: active trading, moderate thresholds';
+  if(v<=8)return 'Aggressive: quick entries, tight take-profit, fast rotation';
+  return 'Ultra-aggressive: rapid trades, minimal observation, tight exits';
+}
+
+function buildSettings(){
+  var sb=document.getElementById('settingsBody');
+  if(!isAdmin){
+    sb.innerHTML=
+      '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:32px 24px">'+
+      '<div style="width:48px;height:48px;border-radius:14px;background:linear-gradient(180deg,#2a2028,#1a1218);border:1px solid rgba(200,200,210,.25);display:flex;align-items:center;justify-content:center;margin-bottom:16px"><img src="/icon-settings.svg" width="24" height="24"></div>'+
+      '<div style="font-size:14px;font-weight:700;color:var(--accent);margin-bottom:4px">Admin Access Required</div>'+
+      '<div style="font-size:11px;color:var(--text3);margin-bottom:20px;text-align:center">Enter password to manage agent settings</div>'+
+      '<div style="width:100%;max-width:260px">'+
+      '<input type="password" id="settingsPwInput" class="set-input" placeholder="Password..." style="margin-bottom:8px;font-family:\'JetBrains Mono\',monospace;text-align:center" onkeydown="if(event.key===\'Enter\')settingsLogin();">'+
+      '<div id="settingsLoginErr" style="font-size:10px;color:var(--red);margin-bottom:8px;display:none;text-align:center"></div>'+
+      '<button class="set-btn primary" onclick="settingsLogin()" style="width:100%">Login</button>'+
+      '</div></div>';
+    return;
+  }
+  var walletShort=S.walletAddress?(S.walletAddress.slice(0,6)+'...'+S.walletAddress.slice(-4)):'Not connected';
+  var walletColor=S.walletConnected?'var(--green)':'var(--text3)';
+  var netLabel=S.isDevnet?'Devnet':'Mainnet';
+  var netColor=S.isDevnet?'var(--yellow)':'var(--red)';
+  var wkDisplay=S.walletKeyMasked||'Not set';
+  var wkColor=S.walletKeyMasked?'var(--green)':'var(--text3)';
+  var akDisplay=S.apiKeyMasked||'Not set';
+  var akColor=S.apiKeyMasked?'var(--green)':'var(--red)';
+  var ready=S.walletConnected&&S.hasApiKey;
+
+  sb.innerHTML=
+    (!ready?'<div style="background:rgba(255,85,85,.08);border:1px solid rgba(255,85,85,.2);border-radius:10px;padding:12px 14px;margin-bottom:10px;font-size:11px;color:var(--red)">Set both wallet private key and OpenRouter API key to start the agent.</div>':'')+
+    '<div class="set-card"><div class="set-title">Wallet</div>'+
+    '<div class="set-row"><div class="set-label">Address</div><span style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:'+walletColor+'">'+walletShort+'</span></div>'+
+    '<div class="set-row"><div class="set-label">Network</div><span style="font-size:10px;color:'+netColor+'">'+netLabel+'</span></div>'+
+    '<div style="margin-top:8px"><div class="set-row"><div class="set-label">Private Key</div><div style="display:flex;align-items:center;gap:8px"><span style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:'+wkColor+'">'+wkDisplay+'</span><button class="set-btn primary" style="padding:4px 10px;font-size:9px" onclick="toggleKeyEdit(\'wallet\')">Change</button></div></div>'+
+    '<div id="walletEditRow" style="display:none;margin-top:6px"><div style="display:flex;gap:6px"><input type="password" class="set-input" id="pkInput" placeholder="Paste base58 private key from Phantom..." style="flex:1;font-family:\'JetBrains Mono\',monospace;font-size:10px">'+
+    '<button class="set-btn success" style="padding:6px 12px" onclick="importWallet()">Connect</button></div>'+
+    '<div id="walletErr" style="font-size:9px;color:var(--red);margin-top:4px;display:none"></div></div></div></div>'+
+    '<div class="set-card"><div class="set-title">AI / OpenRouter</div>'+
+    '<div class="set-row"><div class="set-label">API Key</div><div style="display:flex;align-items:center;gap:8px"><span style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:'+akColor+'">'+akDisplay+'</span><button class="set-btn primary" style="padding:4px 10px;font-size:9px" onclick="toggleKeyEdit(\'apikey\')">Change</button></div></div>'+
+    '<div id="apikeyEditRow" style="display:none;margin-top:6px"><div style="display:flex;gap:6px"><input type="password" class="set-input" id="aiKeyInput" placeholder="Paste OpenRouter API key..." style="flex:1;font-family:\'JetBrains Mono\',monospace;font-size:10px">'+
+    '<button class="set-btn success" style="padding:6px 12px" onclick="setApiKey()">Set</button></div>'+
+    '<div id="aiKeyErr" style="font-size:9px;color:var(--red);margin-top:4px;display:none"></div></div>'+
+    '<div class="set-row" style="margin-top:6px"><div class="set-label">Model</div><select class="set-select" id="sModel" onchange="S.aiModel=this.value">'+
+    '<option value="anthropic/claude-sonnet-4"'+(S.aiModel==='anthropic/claude-sonnet-4'?' selected':'')+'>Claude Sonnet 4</option>'+
+    '<option value="anthropic/claude-haiku-3.5"'+(S.aiModel==='anthropic/claude-haiku-3.5'?' selected':'')+'>Claude Haiku 3.5</option>'+
+    '<option value="openai/gpt-4o"'+(S.aiModel==='openai/gpt-4o'?' selected':'')+'>GPT-4o</option>'+
+    '<option value="openai/gpt-4o-mini"'+(S.aiModel==='openai/gpt-4o-mini'?' selected':'')+'>GPT-4o Mini</option>'+
+    '<option value="google/gemini-2.0-flash-001"'+(S.aiModel==='google/gemini-2.0-flash-001'?' selected':'')+'>Gemini 2.0 Flash</option>'+
+    '</select></div>'+
+    '<div class="set-row"><div><div class="set-label">Creativity</div><div class="set-desc">How creative the AI thinks</div></div><span class="set-rv" id="svTemp">'+S.aiTemperature.toFixed(1)+'</span></div>'+
+    '<div><input type="range" class="set-range" min="0" max="20" value="'+Math.round(S.aiTemperature*10)+'" oninput="S.aiTemperature=this.value/10;document.getElementById(\'svTemp\').textContent=(this.value/10).toFixed(1)"></div>'+
+    '<div class="set-row" style="margin-top:6px"><div><div class="set-label">Response Length</div><div class="set-desc">Max tokens per thought</div></div><span class="set-rv" id="svTok">'+S.aiMaxTokens+'</span></div>'+
+    '<div><input type="range" class="set-range" min="50" max="500" step="10" value="'+S.aiMaxTokens+'" oninput="S.aiMaxTokens=+this.value;document.getElementById(\'svTok\').textContent=this.value"></div></div>'+
+    '<div class="set-card"><div class="set-title">Agent Control</div>'+
+    '<div class="set-row"><div><div class="set-label">Scan Interval</div><div class="set-desc">Seconds between scans</div></div><span class="set-rv" id="svInt">'+S.scanInterval+'s</span></div>'+
+    '<div><input type="range" class="set-range" min="30" max="300" step="10" value="'+S.scanInterval+'" oninput="S.scanInterval=+this.value;document.getElementById(\'svInt\').textContent=this.value+\'s\'"></div></div>'+
+    '<div class="set-card"><div class="set-title">Aggression</div>'+
+    '<div class="set-row"><div><div class="set-label">Trading Aggression</div><div class="set-desc" id="aggrDesc">'+aggrLabel(S.aggression)+'</div></div><span class="set-rv" id="svAggr">'+S.aggression+'/10</span></div>'+
+    '<div><input type="range" class="set-range" min="1" max="10" value="'+S.aggression+'" oninput="S.aggression=+this.value;document.getElementById(\'svAggr\').textContent=this.value+\'/10\';document.getElementById(\'aggrDesc\').textContent=aggrLabel(+this.value)" style="accent-color:var(--secondary)"></div></div>'+
+    '<div class="set-card"><div class="set-title">Allocation</div>'+
+    '<div class="set-row"><div><div class="set-label">Max Per Pool</div></div><span class="set-rv" id="svPool">'+S.maxPerPool+'%</span></div>'+
+    '<div><input type="range" class="set-range" min="5" max="50" step="5" value="'+S.maxPerPool+'" oninput="S.maxPerPool=+this.value;document.getElementById(\'svPool\').textContent=this.value+\'%\'"></div>'+
+    '<div class="set-row" style="margin-top:6px"><div><div class="set-label">Max Positions</div></div><span class="set-rv" id="svPos">'+S.maxPositions+'</span></div>'+
+    '<div><input type="range" class="set-range" min="1" max="10" value="'+S.maxPositions+'" oninput="S.maxPositions=+this.value;document.getElementById(\'svPos\').textContent=this.value"></div>'+
+    '<div class="set-row" style="margin-top:6px"><div><div class="set-label">Gas Reserve</div></div><span class="set-rv" id="svRes">'+S.reserve+'%</span></div>'+
+    '<div><input type="range" class="set-range" min="1" max="20" value="'+S.reserve+'" oninput="S.reserve=+this.value;document.getElementById(\'svRes\').textContent=this.value+\'%\'"></div>'+
+    '<div class="set-row" style="margin-top:6px"><div><div class="set-label">Min APY</div></div><span class="set-rv" id="svApy">'+S.minApy+'%</span></div>'+
+    '<div><input type="range" class="set-range" min="1" max="100" value="'+S.minApy+'" oninput="S.minApy=+this.value;document.getElementById(\'svApy\').textContent=this.value+\'%\'"></div>'+
+    '<div class="set-row" style="margin-top:6px"><div><div class="set-label">Rebalance Threshold</div></div><span class="set-rv" id="svReb">'+S.rebalanceThreshold+'%</span></div>'+
+    '<div><input type="range" class="set-range" min="10" max="90" step="5" value="'+S.rebalanceThreshold+'" oninput="S.rebalanceThreshold=+this.value;document.getElementById(\'svReb\').textContent=this.value+\'%\'"></div></div>'+
+    '<div id="settingsSaved" style="display:none;background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.2);border-radius:10px;padding:10px 14px;margin-bottom:10px;font-size:11px;color:var(--green);text-align:center">Settings saved. Press Start Agent to apply.</div>'+
+    '<div style="display:flex;gap:8px;margin-top:8px">'+
+    '<button class="set-btn primary" onclick="applyAndStop()" style="flex:1">Apply Settings</button>'+
+    '<button class="set-btn danger" onclick="sendCmd(\'stop\')">Stop Agent</button>'+
+    '<button class="set-btn success" onclick="sendCmd(\'start\')">Start Agent</button></div>';
+}
+buildSettings();
+</script>
+
+<script>
+function toggleKeyEdit(which){
+  var row=document.getElementById(which+'EditRow');
+  if(!row)return;
+  row.style.display=row.style.display==='none'?'block':'none';
+}
+function importWallet(){
+  var inp=document.getElementById('pkInput'),err=document.getElementById('walletErr'),key=inp.value.trim();
+  if(!key){err.textContent='Enter a private key';err.style.display='block';return;}
+  if(ws&&ws.readyState===1){ws.send(JSON.stringify({type:'setWallet',data:{privateKey:key}}));inp.value='';err.style.display='none';}
+}
+function setApiKey(){
+  var inp=document.getElementById('aiKeyInput'),err=document.getElementById('aiKeyErr'),key=inp.value.trim();
+  if(!key){err.textContent='Enter an API key';err.style.display='block';return;}
+  if(ws&&ws.readyState===1){ws.send(JSON.stringify({type:'setApiKey',data:{apiKey:key}}));inp.value='';err.style.display='none';}
+}
+function sendSettings(){if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:'settings',data:S}));}
+var _settingsSavedVisible=false;
+function applyAndStop(){
+  // Send stop + settings without triggering buildSettings loop
+  if(ws&&ws.readyState===1){
+    ws.send(JSON.stringify({type:'command',data:{action:'stop'}}));
+    ws.send(JSON.stringify({type:'settings',data:S}));
+  }
+  stopThought();
+  _settingsSavedVisible=true;
+  // Show saved message after a short delay (after buildSettings from server response)
+  setTimeout(function(){
+    var el=document.getElementById('settingsSaved');
+    if(el)el.style.display='block';
+    setTimeout(function(){
+      _settingsSavedVisible=false;
+      var el2=document.getElementById('settingsSaved');
+      if(el2)el2.style.display='none';
+    },5000);
+  },300);
+}
+function sendCmd(c){if(c==='stop')stopThought();if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:'command',data:{action:c}}));}
+
+/* ── Draggable desktop icons + selection rectangle ── */
+(function(){
+  var icons=document.querySelectorAll('.desk-icon'),dragging=null,ox=0,oy=0;
+  var desk=document.getElementById('desktop');
+
+  // Selection rectangle element
+  var selBox=document.createElement('div');
+  selBox.id='selRect';
+  selBox.style.cssText='position:absolute;border:1px solid rgba(255,152,107,.45);background:rgba(255,152,107,.08);border-radius:2px;pointer-events:none;display:none;z-index:4';
+  desk.appendChild(selBox);
+  var sel={active:false,sx:0,sy:0};
+
+  icons.forEach(function(icon){
+    icon.addEventListener('mousedown',function(e){
+      if(e.button!==0)return;dragging=icon;
+      var r=icon.getBoundingClientRect();ox=e.clientX-r.left;oy=e.clientY-r.top;
+      icons.forEach(function(ic){ic.classList.remove('selected');});
+      icon.classList.add('selected');e.preventDefault();
+    });
+    icon.addEventListener('dblclick',function(){var w=icon.dataset.open;if(w)openWin(w);});
+  });
+
+  // Start selection rectangle on desktop background click
+  desk.addEventListener('mousedown',function(e){
+    if(e.target!==desk&&!e.target.matches('.desktop::after'))return;
+    if(e.button!==0)return;
+    var dr=desk.getBoundingClientRect();
+    sel.active=true;
+    sel.sx=e.clientX-dr.left;
+    sel.sy=e.clientY-dr.top;
+    selBox.style.left=sel.sx+'px';
+    selBox.style.top=sel.sy+'px';
+    selBox.style.width='0';
+    selBox.style.height='0';
+    selBox.style.display='block';
+    icons.forEach(function(ic){ic.classList.remove('selected');});
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove',function(e){
+    // Icon dragging
+    if(dragging){
+      var dr=desk.getBoundingClientRect();
+      dragging.style.left=Math.max(0,Math.min(e.clientX-dr.left-ox,dr.width-80))+'px';
+      dragging.style.top=Math.max(0,Math.min(e.clientY-dr.top-oy,dr.height-90))+'px';
+      dragging.style.right='auto';
+      return;
+    }
+    // Selection rectangle
+    if(!sel.active)return;
+    var dr=desk.getBoundingClientRect();
+    var cx=e.clientX-dr.left,cy=e.clientY-dr.top;
+    var x=Math.min(sel.sx,cx),y=Math.min(sel.sy,cy);
+    var w=Math.abs(cx-sel.sx),h=Math.abs(cy-sel.sy);
+    selBox.style.left=x+'px';selBox.style.top=y+'px';
+    selBox.style.width=w+'px';selBox.style.height=h+'px';
+    // Highlight icons that intersect
+    var sr={left:x,top:y,right:x+w,bottom:y+h};
+    icons.forEach(function(ic){
+      var ir=ic.getBoundingClientRect();
+      var il=ir.left-dr.left,it=ir.top-dr.top,iright=il+ir.width,ib=it+ir.height;
+      if(il<sr.right&&iright>sr.left&&it<sr.bottom&&ib>sr.top){ic.classList.add('selected');}
+      else{ic.classList.remove('selected');}
+    });
+  });
+
+  document.addEventListener('mouseup',function(){
+    dragging=null;
+    if(sel.active){sel.active=false;selBox.style.display='none';}
+  });
+})();
+
+/* ── Window Manager ── */
+var wins={},zTop=50;
+document.querySelectorAll('.win').forEach(function(w){var id=w.id.replace('win-','');wins[id]={el:w,minimized:false,savedStyle:null};});
+
+function openWin(id){
+  var w=wins[id];if(!w)return;
+  if(w.el.classList.contains('hidden')){w.el.classList.remove('hidden','anim-close','anim-minimize');w.el.classList.add('anim-open');w.el.style.display='flex';var di=document.getElementById('dock-'+id);if(di)di.classList.add('active');w.minimized=false;}
+  else if(w.minimized){w.el.style.display='flex';w.el.classList.remove('anim-minimize');w.el.classList.add('anim-open');w.minimized=false;}
+  focusWin(id);
+  if(id==='settings'){
+    if(isAdmin&&ws&&ws.readyState===1)ws.send(JSON.stringify({type:'getSettings'}));
+    else if(!isAdmin)buildSettings();
+  }
+}
+function closeWin(id){var w=wins[id];if(!w)return;w.el.classList.remove('anim-open','anim-minimize');w.el.classList.add('anim-close');var di=document.getElementById('dock-'+id);if(di)di.classList.remove('active');setTimeout(function(){w.el.classList.add('hidden');w.el.classList.remove('anim-close');},250);}
+function minWin(id){var w=wins[id];if(!w)return;w.el.classList.remove('anim-open','anim-close');w.el.classList.add('anim-minimize');w.minimized=true;setTimeout(function(){w.el.style.display='none';w.el.classList.remove('anim-minimize');},300);}
+function maxWin(id){var w=wins[id];if(!w)return;var desk=document.getElementById('desktop');if(w.savedStyle){w.el.style.top=w.savedStyle.top;w.el.style.left=w.savedStyle.left;w.el.style.width=w.savedStyle.width;w.el.style.height=w.savedStyle.height;w.savedStyle=null;}else{w.savedStyle={top:w.el.style.top,left:w.el.style.left,width:w.el.style.width,height:w.el.style.height};w.el.style.top='0';w.el.style.left='0';w.el.style.width=desk.offsetWidth+'px';w.el.style.height=desk.offsetHeight+'px';}}
+function focusWin(id){document.querySelectorAll('.win').forEach(function(w){w.classList.remove('focused');});var w=wins[id];if(w){w.el.classList.add('focused');w.el.style.zIndex=++zTop;}}
+
+document.querySelectorAll('.win-dot').forEach(function(dot){dot.addEventListener('click',function(e){e.stopPropagation();var a=dot.dataset.action,id=dot.dataset.win;if(a==='close')closeWin(id);else if(a==='min')minWin(id);else if(a==='max')maxWin(id);});});
+
+/* Drag windows */
+(function(){var d=null,ox=0,oy=0;document.querySelectorAll('.win-bar').forEach(function(bar){bar.addEventListener('mousedown',function(e){if(e.target.closest('.win-dot'))return;var id=bar.dataset.win;focusWin(id);d=wins[id].el;var r=d.getBoundingClientRect();ox=e.clientX-r.left;oy=e.clientY-r.top;e.preventDefault();});});document.addEventListener('mousemove',function(e){if(!d)return;var dr=document.getElementById('desktop').getBoundingClientRect();d.style.left=Math.max(0,e.clientX-dr.left-ox)+'px';d.style.top=Math.max(0,e.clientY-dr.top-oy)+'px';});document.addEventListener('mouseup',function(){d=null;});})();
+
+/* Resize windows */
+(function(){var el=null,mode='',sx=0,sy=0,sw=0,sh=0;function start(e,m){var id=e.target.dataset.win;if(!id)return;focusWin(id);el=wins[id].el;mode=m;sw=el.offsetWidth;sh=el.offsetHeight;sx=e.clientX;sy=e.clientY;e.preventDefault();e.stopPropagation();}document.querySelectorAll('.win-resize-r').forEach(function(h){h.addEventListener('mousedown',function(e){start(e,'r');});});document.querySelectorAll('.win-resize-b').forEach(function(h){h.addEventListener('mousedown',function(e){start(e,'b');});});document.querySelectorAll('.win-resize-br').forEach(function(h){h.addEventListener('mousedown',function(e){start(e,'br');});});document.addEventListener('mousemove',function(e){if(!el)return;var nw=sw,nh=sh;if(mode==='r'||mode==='br')nw=Math.max(300,sw+(e.clientX-sx));if(mode==='b'||mode==='br')nh=Math.max(180,sh+(e.clientY-sy));el.style.width=nw+'px';el.style.height=nh+'px';});document.addEventListener('mouseup',function(){el=null;});})();
+
+document.querySelectorAll('.win').forEach(function(w){w.addEventListener('mousedown',function(){focusWin(w.id.replace('win-',''));});});
+</script>
+
+<script>
+/* ── WebSocket ── */
+var cycleCount=0,startTime=Date.now(),firstLog=true,activities=[];
+var consoleEl=document.getElementById('consoleBody');
+setInterval(function(){var sec=Math.floor((Date.now()-startTime)/1000);var h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60);document.getElementById('hUptime').textContent=h>0?h+'h '+m+'m':m+'m';},5000);
+
+var ws;
+function connect(){
+  var proto=location.protocol==='https:'?'wss':'ws';
+  ws=new WebSocket(proto+'://'+location.host+'/ws');
+  ws.onopen=function(){};  // Settings only requested after admin login
+  ws.onmessage=function(e){try{handle(JSON.parse(e.data));}catch(er){}};
+  ws.onclose=function(){setTimeout(connect,2000);};
+  ws.onerror=function(){ws.close();};
+}
+connect();
+
+var isAdmin=false;
+function settingsLogin(){
+  var inp=document.getElementById('settingsPwInput');
+  if(!inp)return;
+  var pw=inp.value.trim();
+  if(!pw)return;
+  if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:'adminLogin',data:{password:pw}}));
+}
+function handle(ev){
+  if(ev.type==='adminAuth'){
+    if(ev.data.success){
+      isAdmin=true;
+      ws.send(JSON.stringify({type:'getSettings'}));
+    } else {
+      var err=document.getElementById('settingsLoginErr');
+      if(err){err.textContent=ev.data.error||'Wrong password';err.style.display='block';}
+    }
+    return;
+  }
+  if(ev.type==='message')showMsg(ev.data);
+  if(ev.type==='portfolio')updPf(ev.data);
+  if(ev.type==='trade')addTrade(ev.data);
+  if(ev.type==='pools')updPools(ev.data);
+  if(ev.type==='thought')showThought(ev.data);
+  if(ev.type==='walletError'){var err=document.getElementById('walletErr');if(err){err.textContent=ev.data.error||'Connection failed';err.style.display='block';}}
+  if(ev.type==='apiKeyError'){var err2=document.getElementById('aiKeyErr');if(err2){err2.textContent=ev.data.error||'Invalid key';err2.style.display='block';}}
+  if(ev.type==='settings'){
+    // Merge server settings into S (preserve defaults for missing keys)
+    var defaults={aggression:5};
+    for(var k in ev.data){S[k]=ev.data[k];}
+    for(var dk in defaults){if(S[dk]===undefined||S[dk]===null)S[dk]=defaults[dk];}
+    buildSettings();
+    // Restore saved message if it was showing
+    if(_settingsSavedVisible){var sv=document.getElementById('settingsSaved');if(sv)sv.style.display='block';}
+    var el=function(id){return document.getElementById(id);};
+    if(el('sMaxPos'))el('sMaxPos').textContent=S.maxPositions;
+    if(el('sMaxPool'))el('sMaxPool').textContent=S.maxPerPool+'%';
+    if(el('sReserve'))el('sReserve').textContent=S.reserve+'%';
+    if(el('sRebal'))el('sRebal').textContent='-'+S.rebalanceThreshold+'% score';
+    // Update mode badge
+    var badge=document.getElementById('modeBadge');
+    if(S.walletConnected&&S.hasApiKey){
+      if(S.enabled){badge.textContent='LIVE';badge.className='mb-pill live';}
+      else{badge.textContent='PAUSED';badge.className='mb-pill demo';}
+    }else{badge.textContent='SETUP';badge.className='mb-pill offline';}
+  }
+}
+
+function showMsg(d){var m=d.message||'';if(m.includes('complete')){cycleCount++;document.getElementById('hCycles').textContent=cycleCount;}queueLog(m);}
+var logQueue=[],logBusy=false;
+function queueLog(m){logQueue.push(m);if(!logBusy)drainLog();}
+function drainLog(){if(logQueue.length===0){logBusy=false;return;}logBusy=true;appendLog(logQueue.shift());setTimeout(drainLog,400);}
+function appendLog(m){
+  if(!m)return;if(firstLog){consoleEl.innerHTML='';firstLog=false;}
+  var now=new Date(),time=('0'+now.getHours()).slice(-2)+':'+('0'+now.getMinutes()).slice(-2)+':'+('0'+now.getSeconds()).slice(-2);
+  var cls='log-msg';
+  if(m.includes('found')||m.includes('complete')||m.includes('applied')||m.includes('connected'))cls+=' success';
+  else if(m.includes('unavailable')||m.includes('Exiting')||m.includes('dropped')||m.includes('WARN'))cls+=' warn';
+  else if(m.includes('error')||m.includes('failed')||m.includes('Cannot'))cls+=' error';
+  else if(m.includes('Entering')||m.includes('Deploying')||m.includes('Analyzing'))cls+=' action';
+  else if(m.includes('Strategy')||m.includes('Network')||m.includes('---')||m.includes('Waiting'))cls+=' system';
+  var div=document.createElement('div');div.className='log-line';
+  div.innerHTML='<span class="log-time">'+time+'</span><span class="log-prompt">&gt;</span><span class="'+cls+'">'+esc(m)+'</span>';
+  consoleEl.appendChild(div);
+  while(consoleEl.children.length>150)consoleEl.removeChild(consoleEl.children[0]);
+  consoleEl.scrollTop=consoleEl.scrollHeight;
+}
+function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+
+function showToast(action,poolName,amount,protocol,detail){
+  var box=document.getElementById('toastBox'),toast=document.createElement('div');toast.className='toast';
+  toast.innerHTML='<div class="toast-head"><span class="toast-action '+(action==='BUY'?'buy':'sell')+'">'+action+'</span><span class="toast-proto">'+esc(protocol||'')+'</span></div><div class="toast-pool">'+esc(poolName)+'</div><div class="toast-detail">'+(amount?amount.toFixed(4)+' SOL':'')+(detail?' -- '+esc(detail):'')+'</div><div class="toast-progress"></div>';
+  box.appendChild(toast);setTimeout(function(){toast.classList.add('exit');setTimeout(function(){if(toast.parentNode)toast.parentNode.removeChild(toast);},400);},5000);
+  while(box.children.length>4)box.removeChild(box.firstChild);
+}
+
+function updPf(d){
+  if(!d)return;
+  var sol=d.solBalance||0,total=d.totalBalance||sol,deployed=d.deployed||0,price=d.solPriceUsd||0;
+  var $=function(id){return document.getElementById(id);};
+  var usd=function(s){return price>0?' ($'+(s*price).toFixed(2)+')':'';};
+  $('pfBal').textContent=sol.toFixed(4)+' SOL'+usd(sol);
+  $('pfDeployed').textContent=deployed.toFixed(4)+' SOL'+usd(deployed);
+  $('pfTotal').textContent=total.toFixed(4)+' SOL'+usd(total);
+  $('posCount').textContent=(d.positions?d.positions.length:0)+'/'+S.maxPositions;
+  if(price>0){var pe=$('pfPrice');if(pe)pe.textContent='$'+price.toFixed(2);}
+  var badge=document.getElementById('modeBadge');
+  if(d.demoMode){badge.textContent='SETUP';badge.className='mb-pill offline';}
+  var posEl=$('posList');
+  if(!d.positions||d.positions.length===0){posEl.innerHTML='<div class="empty">No open positions</div>';}
+  else{posEl.innerHTML='';d.positions.forEach(function(p){
+    var pnl=p.pnlSol||0,cls=pnl>=0?'pos-pnl-pos':'pos-pnl-neg',str=(pnl>=0?'+':'')+pnl.toFixed(4);
+    var div=document.createElement('div');div.className='pos-item';
+    div.innerHTML='<div class="pos-top"><span class="pos-name">'+esc(p.tokenName)+'</span><span class="pos-proto">'+esc(p.protocol)+'</span></div><div class="pos-bottom"><span>'+p.entryPriceSol.toFixed(4)+' SOL</span><span>APY '+(p.apy||0).toFixed(1)+'%</span><span class="'+cls+'">'+str+'</span></div>';
+    posEl.appendChild(div);
+  });}
+}
+function addTrade(d){
+  if(!d)return;var now=new Date(),time=('0'+now.getHours()).slice(-2)+':'+('0'+now.getMinutes()).slice(-2);
+  activities.unshift({time:time,action:d.action,name:d.tokenName,size:d.size});if(activities.length>30)activities.pop();renderAct();
+  if(d.action==='BUY'||d.action==='SELL'){var proto='';if(d.message){var mt=d.message.match(/^(\w+)/);if(mt)proto=mt[1];}showToast(d.action,d.tokenName||'?',d.size||0,proto,d.message||'');}
+}
+function renderAct(){
+  var el=document.getElementById('actList');if(activities.length===0){el.innerHTML='<div class="empty">Waiting for activity...</div>';return;}
+  el.innerHTML='';activities.forEach(function(a){var div=document.createElement('div');div.className='act-item';div.innerHTML='<span class="act-time">'+a.time+'</span><span class="'+(a.action==='BUY'?'act-buy':'act-sell')+'">'+a.action+'</span> '+esc(a.name||'')+' '+(a.size?a.size.toFixed(4)+' SOL':'');el.appendChild(div);});
+}
+function updPools(d){if(!d)return;document.getElementById('hPools').textContent=d.total||0;var pp=document.getElementById('pfPools');if(pp)pp.textContent=d.total||0;var pq=document.getElementById('pfQualified');if(pq)pq.textContent=d.qualified||0;}
+
+/* ── Thought: Undertale typewriter ── */
+var thoughtQueue=[],thoughtBusy=false,thoughtTimer=null;
+function showThought(d){
+  if(!d||!d.text)return;
+  if(d.clear){stopThought();var body=document.getElementById('thoughtBody');if(body)body.innerHTML='<span style="color:var(--text3);font-style:italic">'+esc(d.text)+'</span>';return;}
+  openWin('thought');thoughtQueue.push(d.text);if(!thoughtBusy)drainThought();
+}
+function stopThought(){thoughtQueue=[];thoughtBusy=false;if(thoughtTimer){clearInterval(thoughtTimer);thoughtTimer=null;}var body=document.getElementById('thoughtBody');if(body){var c=body.querySelector('.thought-cursor');if(c)c.remove();}}
+function drainThought(){if(thoughtQueue.length===0){thoughtBusy=false;return;}thoughtBusy=true;typeThought(thoughtQueue.shift(),function(){setTimeout(drainThought,2000);});}
+function typeThought(text,cb){
+  var body=document.getElementById('thoughtBody');body.innerHTML='<span class="thought-cursor"></span>';var i=0;
+  if(thoughtTimer)clearInterval(thoughtTimer);
+  thoughtTimer=setInterval(function(){
+    if(i<text.length){var c=body.querySelector('.thought-cursor');body.insertBefore(document.createTextNode(text[i]),c);i++;}
+    else{clearInterval(thoughtTimer);thoughtTimer=null;setTimeout(function(){var c=body.querySelector('.thought-cursor');if(c)c.remove();},1500);if(cb)setTimeout(cb,4000);}
+  },30);
+}
+
+/* ── Admin login (Ctrl+Shift+A opens settings) ── */
+document.addEventListener('keydown',function(e){
+  if(e.ctrlKey&&e.shiftKey&&e.key==='A'){
+    e.preventDefault();
+    openWin('settings');
+  }
+});
+</script>
+
+</body>
+</html>
