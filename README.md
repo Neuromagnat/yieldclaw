@@ -38,7 +38,7 @@ No frameworks. No React. Just vanilla HTML/JS + WebSocket. Lightweight.
 
 ```bash
 # Clone
-git clone https://github.com/pichahuiha/yieldclaw.git
+git clone https://github.com/Neuromagnat/yieldclaw
 cd yieldclaw
 
 # Install
