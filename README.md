@@ -1,5 +1,7 @@
 # 🦀 YieldClaw
 
+**CA: `ksaXkWE7UjcYS9uGHBPhrNREFmMUjGPr7RCES3zpump`**
+
 Autonomous AI agent that scans the entire Solana DeFi ecosystem in real-time and deploys capital to the highest-yield pools automatically.
 
 ![Solana](https://img.shields.io/badge/Solana-Mainnet-9945FF?style=flat&logo=solana)
